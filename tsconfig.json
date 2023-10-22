@@ -1,7 +1,9 @@
 {
     "extends": "./tsconfig.base.json",
     "compilerOptions": {
+        "skipLibCheck": true,
         "module": "NodeNext",
-        "moduleResolution": "NodeNext"
+        "moduleResolution": "NodeNext",
+        "allowSyntheticDefaultImports": true
     }
 }
