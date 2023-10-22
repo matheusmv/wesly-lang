@@ -11,7 +11,12 @@ export type ParserError = Error & {
         text: string;
         token: string;
         line: number;
-        loc: { first_line: number, last_line: number, first_column: 0, last_column: number };
+        loc: {
+            first_line: number;
+            last_line: number;
+            first_column: 0;
+            last_column: number;
+        };
         expected: string[];
         recoverable: boolean;
     };

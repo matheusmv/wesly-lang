@@ -5,7 +5,14 @@ import { Interpreter } from '../interpreter/index.js';
 import { VoidType } from '../type/atomic.js';
 import { Type } from '../type/index.js';
 import { ObjType } from '../type/object.js';
-import { arrCopy, arrEqual, isArray, isFunc, isReturn, mapEqual } from '../util/index.js';
+import {
+    arrCopy,
+    arrEqual,
+    isArray,
+    isFunc,
+    isReturn,
+    mapEqual,
+} from '../util/index.js';
 
 export type ObjKind =
     | 'Error'

@@ -1,17 +1,17 @@
 {
-  "name": "wesly-lang",
-  "version": "1.0.0",
-  "main": "index.js",
+  "name": "wesly",
+  "private": true,
+  "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "bison": "jison -t src/parser/parser.jison -o src/parser/parser.js",
+    "bison": "jison src/parser/parser.jison -o src/parser/parser.js",
+    "bison:debug": "jison -t src/parser/parser.jison -o src/parser/parser.js",
     "build": "npm run bison && node src/parser/beforeRollup.js && npx tsc",
     "start": "npm run build && node dist/index.js",
-    "lint": "npx eslint . --fix",
-    "clean": "rm -rf ./dist"
+    "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
+    "lint:fix": "eslint . --fix"
   },
   "devDependencies": {
-    "@types/node": "^20.8.6",
     "@typescript-eslint/eslint-plugin": "^6.8.0",
     "@typescript-eslint/parser": "^6.8.0",
     "eslint": "^8.51.0",
