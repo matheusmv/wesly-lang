@@ -114,3 +114,19 @@ export function arrCopy<T>(arr: T[], copy: (v: T) => T): T[] {
 
     return result;
 }
+
+export function mapEqual<K, V>(
+    l: Map<K, V>,
+    r: Map<K, V>,
+    cmp: (l: V, r: V) => boolean,
+): boolean {
+    if (l.size !== r.size) return false;
+
+    for (const [key, value] of l) {
+        if (!r.has(key) || !cmp(r.get(key) as V, value)) {
+            return false;
+        }
+    }
+
+    return true;
+}

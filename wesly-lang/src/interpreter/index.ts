@@ -103,8 +103,8 @@ export class Interpreter implements Visitor<Value | Error> {
             }
 
             this.env.define(nm.lexeme, {
-                type: type as Type,
-                value: vl,
+                type: type?.copy() as Type,
+                value: vl.copy(),
             });
         }
 
@@ -311,7 +311,7 @@ export class Interpreter implements Visitor<Value | Error> {
                 const result = this.execMemberAssign(operation, l, r);
                 if (isError(result)) {
                     return new Error(
-                        `invalid statement: ${node.toString()}, at ${
+                        `invalid statement: ${node.toString()}, ${
                             result.message
                         }`,
                     );
