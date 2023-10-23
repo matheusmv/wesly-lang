@@ -56,7 +56,29 @@ func NewAddress(number int, zip string) Address {
     };
 }
 
-NewUser(1, "alex", "12345", NewAddress(145, "12444-777"));
+var alex = NewUser(1, "alex", "12345", NewAddress(145, "12444-777"));
+
+var alexCopyWithAnomObj = object{
+    id int
+    username, password string
+    address Address
+}{
+    id: alex.id,
+    username: alex.username,
+    password: alex.password,
+    address: object {
+        number int
+        zip string
+    }{
+        number: alex.address.number,
+        zip: alex.address.zip,
+    },
+};
+
+alexCopyWithAnomObj.username = "alex-copy";
+
+alex;
+alexCopyWithAnomObj;
 `);
 
 const globalEnv = new Environment();
@@ -67,6 +89,7 @@ function run(nodes: Node[], it: Interpreter) {
         const v = node.accept(it);
         if (isError(v)) {
             console.error(v);
+            break;
         } else {
             console.log(v.value.toString());
         }

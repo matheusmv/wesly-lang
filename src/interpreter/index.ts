@@ -47,7 +47,6 @@ import {
     FunctionObject,
     IntObject,
     NilObject,
-    Obj,
     ObjectInstance,
     ObjectSpec,
     ReturnObject,
@@ -87,8 +86,9 @@ export class Interpreter implements Visitor<Value | Error> {
         }
 
         const vls = values.map((expr) => expr.accept(this));
-        const err = vls.find((vl) => isError(vl));
-        if (isError(err)) return err;
+        for (const vl of vls) {
+            if (isError(vl)) return vl;
+        }
 
         for (let i = 0; i < nms.length; i++) {
             const nm = nms[i];
@@ -204,7 +204,7 @@ export class Interpreter implements Visitor<Value | Error> {
         }
 
         const expr = node.result.accept(this);
-        if (isError(expr)) return expr;
+        if (isError(expr)) throw expr;
 
         throw new ReturnObject({
             type: expr.type,
@@ -512,12 +512,16 @@ export class Interpreter implements Visitor<Value | Error> {
             );
 
         const funcArgs = args.map((arg) => arg.accept(this));
-        const err = funcArgs.find((arg) => isError(arg));
-        if (isError(err)) return err;
+        for (const arg of funcArgs) {
+            if (isError(arg)) return arg;
+        }
+
+        const result = func.call(this, funcArgs as Value[]);
+        if (isError(result)) return result;
 
         return {
             type: (func.type as FuncType)?.returnType,
-            value: func.call(this, funcArgs as Value[]),
+            value: result,
         };
     }
 
@@ -561,19 +565,41 @@ export class Interpreter implements Visitor<Value | Error> {
         const objConstructor = vl.value;
         const specFields = fields.map((of) => of.name.name);
         const specValues = vls.map((vl) => (vl as Value).value);
+        const objValue = objConstructor.callWithNamedArgs(
+            this,
+            specFields,
+            specValues,
+        );
+
+        if (isError(objValue)) return objValue;
 
         return {
             type: vl.type?.copy(),
-            value: objConstructor.callWithNamedArgs(
-                this,
-                specFields,
-                specValues,
-            ),
+            value: objValue,
         };
     }
 
     visitObjectInlineInitExpression(node: ObjectInlineInit): Value | Error {
-        throw new Error('Method not implemented.');
+        const { type, fields } = node;
+
+        const vls = fields.map((of) => of.value.accept(this));
+        for (const vl of vls) {
+            if (isError(vl)) return vl;
+        }
+
+        const specFields = fields.map((of) => of.name.name);
+        const specValues = vls.map((vl) => (vl as Value).value);
+        const objValue = new ObjectSpec(
+            '',
+            type.copy() as ObjType,
+        ).callWithNamedArgs(this, specFields, specValues);
+
+        if (isError(objValue)) return objValue;
+
+        return {
+            type: type.copy(),
+            value: objValue,
+        };
     }
 
     visitObjectFieldExpression(node: ObjectField): Value | Error {

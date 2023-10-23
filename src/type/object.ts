@@ -21,6 +21,6 @@ export class ObjType implements Type {
     }
 
     toString(): string {
-        return `{\n${this.fields.list.map((f) => f.toString()).join('\n')}\n}`;
+        return `{${this.fields.list.map((f) => f.toString()).join(', ')}}`;
     }
 }

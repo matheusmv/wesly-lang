@@ -9,6 +9,7 @@ import {
     arrCopy,
     arrEqual,
     isArray,
+    isError,
     isFunc,
     isReturn,
     mapEqual,
@@ -278,7 +279,7 @@ export class ContinueObject implements Obj {
 }
 
 export interface Callable extends Obj {
-    call(it: Interpreter, args: Value[]): Obj;
+    call(it: Interpreter, args: Value[]): Obj | Error;
 }
 
 export class FunctionObject implements Callable {
@@ -289,7 +290,7 @@ export class FunctionObject implements Callable {
         public type: Type,
     ) {}
 
-    call(it: Interpreter, args: Value[]): Obj {
+    call(it: Interpreter, args: Value[]): Obj | Error {
         const params = this.params.parseList();
 
         for (let i = 0; i < params.length; i++) {
@@ -302,6 +303,8 @@ export class FunctionObject implements Callable {
             if (isReturn(rt) && rt.value) {
                 return rt.value.value;
             }
+
+            if (isError(rt)) return rt;
         }
 
         return new NilObject();
@@ -331,22 +334,40 @@ export class FunctionObject implements Callable {
 }
 
 export class ObjectSpec implements Callable {
+    public anonymous: boolean;
+
     constructor(
         public name: string,
         public spec: ObjType,
-    ) {}
+    ) {
+        this.anonymous = name === '';
+    }
 
-    call(it: Interpreter, args: Value[]): Obj {
+    call(it: Interpreter, args: Value[]): Obj | Error {
         const objInstance = new ObjectInstance(this, new Map());
         return objInstance;
     }
 
-    callWithNamedArgs(it: Interpreter, names: string[], values: Obj[]): Obj {
-        const objInstance = new ObjectInstance(
-            this,
-            this.specTable(names, values),
-        );
-        return objInstance;
+    callWithNamedArgs(it: Interpreter, names: string[], values: Obj[]): Obj | Error {
+        const result = this.specContainsNames(names);
+        if (isError(result)) return result;
+
+        return new ObjectInstance(this, this.specTable(names, values));
+    }
+
+    private specContainsNames(names: string[]): Error | null {
+        const specDef = this.spec.fields.parseList();
+
+        for (const name of names) {
+            const found = specDef.find((f) => f.name === name);
+            if (!found) {
+                return new Error(
+                    `unknown field ${name} in object: ${this.toString()}`,
+                );
+            }
+        }
+
+        return null;
     }
 
     private specTable(names: string[], values: Obj[]): Map<string, Obj> {
@@ -370,11 +391,13 @@ export class ObjectSpec implements Callable {
     equals(o: Obj): boolean {
         if (!(o instanceof ObjectSpec)) return false;
 
+        if (this.anonymous || o.anonymous) return this.spec.equals(o.spec);
+
         return this.name === o.name && this.spec.equals(o.spec);
     }
 
     toString(): string {
-        return `<TypeSpec: ${this.name}>`;
+        return `<TypeSpec: ${this.name}${this.spec.toString()}>`;
     }
 }
 
@@ -463,8 +486,12 @@ export class ObjectInstance implements Obj {
         return `${[...this.fields.entries()].map(([k, v]) => `${k}: ${v}`)}`;
     }
 
+    private getNameOrSpec(): string {
+        return this.spec.name || this.spec.spec.toString();
+    }
+
     toString(): string {
-        return `<Object: ${this.spec.name} {${this.showFields()}}>`;
+        return `<Object: ${this.getNameOrSpec()} {${this.showFields()}}>`;
     }
 }
 
