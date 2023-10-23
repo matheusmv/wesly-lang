@@ -77,8 +77,13 @@ var alexCopyWithAnomObj = object{
 
 alexCopyWithAnomObj.username = "alex-copy";
 
-alex;
-alexCopyWithAnomObj;
+var numbers = [][]int{
+    {1, 2, 3},
+    {4, 5, 6},
+    {7, 8, 9},
+};
+
+numbers[2][2];
 `);
 
 const globalEnv = new Environment();

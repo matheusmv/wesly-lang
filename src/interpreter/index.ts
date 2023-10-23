@@ -14,7 +14,7 @@ import { FuncDecl } from '../ast/func-decl.js';
 import { FuncExpr } from '../ast/func-expr.js';
 import { Group } from '../ast/group-expr.js';
 import { IfStmt } from '../ast/if-stmt.js';
-import { Node, Visitor } from '../ast/index.js';
+import { Expression, Node, Visitor } from '../ast/index.js';
 import {
     Identifier,
     IntegerLiteral,
@@ -47,6 +47,7 @@ import {
     FunctionObject,
     IntObject,
     NilObject,
+    Obj,
     ObjectInstance,
     ObjectSpec,
     ReturnObject,
@@ -64,6 +65,7 @@ import {
     isInt,
     isTruthy,
 } from '../util/index.js';
+import { ArrType } from '../type/array.js';
 
 export class Interpreter implements Visitor<Value | Error> {
     constructor(private env: Env<Value>) {}
@@ -484,19 +486,77 @@ export class Interpreter implements Visitor<Value | Error> {
     }
 
     visitArrayMemberExpression(node: ArrayMember): Value | Error {
-        const [arr, ...dim] = node.getMembers();
+        const [arr, ...indexExprs] = node.getMembers();
 
-        const val = arr.accept(this);
-        if (isError(val)) return val;
+        let arrObj = this.getArrayObject(arr);
+        if (isError(arrObj)) return arrObj;
 
-        const arrObj = val.value as ArrayObject;
+        if (this.isArrayDimensionTooSmall(arrObj, indexExprs.length - 1)) {
+            return new Error(
+                `out of bounds ${node.toString()} : ${arrObj.toString()}`,
+            );
+        }
 
-        console.log(ArrayObject.dimensionSize(arrObj));
+        let result: Obj | undefined;
+        for (const indexExpr of indexExprs) {
+            const index = this.getIntegerValueFromIndexExpression(indexExpr);
+            if (isError(index)) return index;
+
+            if (0 > index || index > arrObj.objects.length - 1) {
+                return new Error(
+                    `out of bounds ${index} : ${arrObj.toString()}`,
+                );
+            }
+
+            result = arrObj.objects[index];
+            if (result instanceof ArrayObject) {
+                arrObj = result;
+            }
+        }
+
+        if (!result) {
+            return new Error(`invalid expression: ${node.toString()}`);
+        }
 
         return {
-            type: new VoidType(),
-            value: new NilObject(),
+            type: (arrObj.type as ArrType)?.type.copy(),
+            value: result,
         };
+    }
+
+    private getArrayObject(array: Expression): ArrayObject | Error {
+        const arrayVal = array.accept(this);
+        if (isError(arrayVal)) return arrayVal;
+
+        if (!(arrayVal.value instanceof ArrayObject)) {
+            return new Error(
+                `invalid expression: ${arrayVal.value.toString()} is not indexable`,
+            );
+        }
+
+        return arrayVal.value;
+    }
+
+    private isArrayDimensionTooSmall(
+        array: ArrayObject,
+        level: number,
+    ): boolean {
+        return ArrayObject.dimensionSize(array) < level;
+    }
+
+    private getIntegerValueFromIndexExpression(
+        index: Expression,
+    ): number | Error {
+        const indexVal = index.accept(this);
+        if (isError(indexVal)) return indexVal;
+
+        if (!(indexVal.value instanceof IntObject)) {
+            return new Error(
+                `array index access must be an integer, got: ${indexVal.type?.toString()}`,
+            );
+        }
+
+        return (indexVal.value as IntObject).value;
     }
 
     visitCallExpression(node: Call): Value | Error {

@@ -508,7 +508,7 @@ export class ArrayObject implements Obj {
     copy(): Obj {
         return new ArrayObject(
             arrCopy(this.objects, (o) => o.copy()),
-            this.type.copy(),
+            this.type?.copy(),
         );
     }
 
