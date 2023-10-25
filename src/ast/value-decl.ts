@@ -7,7 +7,7 @@ export type ValueDeclaration = 'VarDeclaration' | 'ConstDeclaration';
 export class VarDecl implements Declaration {
     public type: Type | null = null;
 
-    constructor(public decl: ValueSpec) {}
+    constructor(public decl: ValueSpec[]) {}
 
     kind(): Kind {
         return 'VarDeclaration';
@@ -18,7 +18,7 @@ export class VarDecl implements Declaration {
     }
 
     copy(): Node {
-        const c = new VarDecl(this.decl.copy());
+        const c = new VarDecl(arrCopy(this.decl, (v) => v.copy()));
         c.type = this.type?.copy() ?? null;
         return c;
     }
@@ -26,7 +26,7 @@ export class VarDecl implements Declaration {
     equals(o: Node): boolean {
         if (!(o instanceof VarDecl)) return false;
 
-        if (!this.decl.equals(o.decl)) return false;
+        if (!arrEqual(this.decl, o.decl, (l, r) => l.equals(r))) return false;
 
         if (this.type && o.type) return this.type.equals(o.type);
 
@@ -34,7 +34,7 @@ export class VarDecl implements Declaration {
     }
 
     toString(): string {
-        return `var ${this.decl.toString()}`;
+        return `var ${this.decl.map((d) => d.toString()).join(', ')}`;
     }
 
     accept<R>(v: Visitor<R>): R {
@@ -45,7 +45,7 @@ export class VarDecl implements Declaration {
 export class ConstDecl implements Declaration {
     public type: Type | null = null;
 
-    constructor(public decl: ValueSpec) {}
+    constructor(public decl: ValueSpec[]) {}
 
     kind(): Kind {
         return 'ConstDeclaration';
@@ -56,7 +56,7 @@ export class ConstDecl implements Declaration {
     }
 
     copy(): Node {
-        const c = new ConstDecl(this.decl.copy());
+        const c = new ConstDecl(arrCopy(this.decl, (v) => v.copy()));
         c.type = this.type?.copy() ?? null;
         return c;
     }
@@ -64,7 +64,7 @@ export class ConstDecl implements Declaration {
     equals(o: Node): boolean {
         if (!(o instanceof ConstDecl)) return false;
 
-        if (!this.decl.equals(o.decl)) return false;
+        if (!arrEqual(this.decl, o.decl, (l, r) => l.equals(r))) return false;
 
         if (this.type && o.type) return this.type.equals(o.type);
 
@@ -72,7 +72,7 @@ export class ConstDecl implements Declaration {
     }
 
     toString(): string {
-        return `const ${this.decl.toString()}`;
+        return `const ${this.decl.map((d) => d.toString()).join(', ')}`;
     }
 
     accept<R>(v: Visitor<R>): R {
@@ -83,8 +83,8 @@ export class ConstDecl implements Declaration {
 export class ValueSpec {
     constructor(
         public valueType: 'var' | 'const',
-        public names: Expression[],
-        public values: Expression[],
+        public name: Expression,
+        public value?: Expression,
         public type?: Type,
     ) {}
 
@@ -97,18 +97,21 @@ export class ValueSpec {
     copy(): ValueSpec {
         return new ValueSpec(
             this.valueType,
-            arrCopy(this.names, (e) => e.copy()),
-            arrCopy(this.values, (e) => e.copy()),
+            this.name.copy(),
+            this.value?.copy(),
             this.type?.copy(),
         );
     }
 
     equals(o: ValueSpec): boolean {
-        if (!arrEqual(this.names, o.names, (lE, rE) => lE.equals(rE)))
-            return false;
+        if (!this.name.equals(o.name)) return false;
 
-        if (!arrEqual(this.values, o.values, (lE, rE) => lE.equals(rE)))
+        if (this.value && o.value) {
+            if (!this.value.equals(o.value)) return false;
+        } else {
+            // should get zero value on typecheck
             return false;
+        }
 
         if (this.type && o.type) return this.type?.equals(o.type);
 
@@ -116,10 +119,8 @@ export class ValueSpec {
     }
 
     toString(): string {
-        return `${this.names
-            .map((nm) => nm.toString())
-            .join(', ')}${this.getTypeAsString()} = ${this.values
-            .map((vl) => vl.toString())
-            .join(', ')}`;
+        return `${this.name.toString()}${this.getTypeAsString()} = ${
+            this.value?.toString() || 'nil'
+        }`;
     }
 }

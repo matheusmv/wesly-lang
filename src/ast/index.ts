@@ -25,7 +25,7 @@ import { LoopStatement, LoopStmt } from './loop-stmt.js';
 
 import { ExpressionStatement, ExprStmt } from './expr-stmt.js';
 
-import { AssignStatement, Assign } from './assign-stmt.js';
+import { AssignExpression, Assign } from './assign-expr.js';
 
 import { ConditionalExpression, Conditional } from './conditional-expr.js';
 
@@ -81,7 +81,7 @@ export type Kind =
     | IfStatement
     | LoopStatement
     | ExpressionStatement
-    | AssignStatement
+    | AssignExpression
     | ConditionalExpression
     | LogicalExpression
     | BinaryExpression
@@ -123,7 +123,7 @@ export interface Visitor<R> {
     visitBreakStmt(node: BreakStmt): R;
     visitIfStatement(node: IfStmt): R;
     visitLoopStatement(node: LoopStmt): R;
-    visitAssignStatement(node: Assign): R;
+    visitAssignExpression(node: Assign): R;
     visitExpressionStatement(node: ExprStmt): R;
     visitConditionalExpression(node: Conditional): R;
     visitLogicalExpression(node: Logical): R;

@@ -1,5 +1,5 @@
 import { ArrayMember, ArrayInit } from '../ast/array-expr.js';
-import { Assign } from '../ast/assign-stmt.js';
+import { Assign } from '../ast/assign-expr.js';
 import { Binary } from '../ast/binary-expr.js';
 import { Block } from '../ast/block-stmt.js';
 import { BreakStmt } from '../ast/break-stmt.js';
@@ -96,7 +96,7 @@ export class TypeCheck implements Visitor<Type | Error> {
         throw new Error('Method not implemented.');
     }
 
-    visitAssignStatement(node: Assign): Type | Error {
+    visitAssignExpression(node: Assign): Type | Error {
         throw new Error('Method not implemented.');
     }
 

@@ -1,5 +1,5 @@
 import { ArrayMember, ArrayInit } from '../ast/array-expr.js';
-import { Assign } from '../ast/assign-stmt.js';
+import { Assign } from '../ast/assign-expr.js';
 import { Binary } from '../ast/binary-expr.js';
 import { Block } from '../ast/block-stmt.js';
 import { BreakStmt } from '../ast/break-stmt.js';
@@ -64,7 +64,6 @@ import { FuncType } from '../type/func.js';
 import { Type } from '../type/index.js';
 import { ObjType } from '../type/object.js';
 import {
-    arrCopy,
     isChar,
     isError,
     isFloat,
@@ -87,35 +86,46 @@ export class Interpreter implements Visitor<Value | Error> {
     }
 
     visitVarDecl(node: VarDecl): Value | Error {
-        const { names, values, type } = node.decl;
+        const { decl } = node;
 
-        const nms = names.map((expr) => (expr as Identifier).token);
-        for (const name of nms) {
-            if (this.env.exists(name))
+        const names = decl.map((expr) => (expr.name as Identifier).token);
+        for (const name of names) {
+            if (this.env.exists(name)) {
                 return new Error(`'${name.lexeme}': already defined`);
+            }
         }
 
-        const vls = values.map((expr) => expr.accept(this));
-        for (const vl of vls) {
-            if (isError(vl)) return vl;
-        }
+        const specTypeExprList = decl.map((spec) => ({
+            type: spec.type,
+            value: spec.value,
+        }));
 
-        for (let i = 0; i < nms.length; i++) {
-            const nm = nms[i];
-            const vl = (vls[i] as Value).value;
+        for (let i = 0; i < names.length; i++) {
+            const name = names[i];
+            const value = specTypeExprList[i];
 
-            if (this.env.exists(nm)) {
+            if (this.env.exists(name)) {
                 return new Error(
                     `'${
-                        nm.lexeme
+                        name.lexeme
                     }': redeclared in this block\n\n\t${node.toString()}`,
                 );
             }
 
-            this.env.define(nm.lexeme, {
-                type: type?.copy() as Type,
-                value: vl.copy(),
-            });
+            if (!value.value) {
+                this.env.define(name.lexeme, {
+                    type: value.type?.copy() as Type,
+                    value: new NilObject(),
+                });
+            } else {
+                const exprVal = value.value.accept(this);
+                if (isError(exprVal)) return exprVal;
+
+                this.env.define(name.lexeme, {
+                    type: exprVal.type?.copy(),
+                    value: exprVal.value.copy(),
+                });
+            }
         }
 
         return {
@@ -293,52 +303,32 @@ export class Interpreter implements Visitor<Value | Error> {
         }
     }
 
-    visitAssignStatement(node: Assign): Value | Error {
+    visitAssignExpression(node: Assign): Value | Error {
         const { lhs, operation, rhs } = node;
 
-        const lExprs = lhs.map((expr) => {
-            if (expr instanceof ExprStmt) return expr.expr;
-            return expr;
-        });
+        const lExpr = lhs instanceof ExprStmt ? lhs.expr : lhs;
+        let rVal = rhs.accept(this);
+        if (isError(rVal)) return rVal;
 
-        let rVals = rhs.map((expr) => expr.accept(this));
-        for (const rVal of rVals) {
-            if (isError(rVal)) return rVal;
-        }
-        rVals = arrCopy(rVals, (vl) => {
-            const { type, value } = vl as Value;
-            return {
-                type: type?.copy(),
-                value: value?.copy(),
-            };
-        });
+        rVal = { type: rVal.type?.copy(), value: rVal.value?.copy() };
 
-        for (let i = 0; i < lhs.length; i++) {
-            const l = lExprs[0];
-            const r = rVals[0] as Value;
-
-            if (l instanceof ObjectMember) {
-                const result = this.execMemberAssign(operation, l, r);
-                if (isError(result)) {
-                    return new Error(
-                        `invalid statement: ${node.toString()}, ${
-                            result.message
-                        }`,
-                    );
-                }
-            } else {
-                const lVal = l.accept(this);
-                if (isError(lVal)) return lVal;
-
-                const result = this.execAssign(operation, lVal, r);
-                if (isError(result)) {
-                    return new Error(
-                        `invalid statement: ${node.toString()}, at ${
-                            result.message
-                        }`,
-                    );
-                }
+        if (lExpr instanceof ObjectMember) {
+            const result = this.execMemberAssign(operation, lExpr, rVal);
+            if (isError(result)) {
+                return new Error(
+                    `invalid expression: ${node.toString()}, ${result.message}`,
+                );
             }
+        }
+
+        const lVal = lExpr.accept(this);
+        if (isError(lVal)) return lVal;
+
+        const result = this.execAssign(operation, lVal, rVal);
+        if (isError(result)) {
+            return new Error(
+                `invalid expression: ${node.toString()}, ${result.message}`,
+            );
         }
 
         return {

@@ -479,11 +479,35 @@ InitializerList
     ;
 
 VarDeclaration
-    : 'var' InitDeclaratorList VarType VarValue
+    : 'var' InitVarDeclaratorList
         {
             {
-                const decl = new yy.AST.ValueSpec('var', $2, $4, $3);
-                $$ = new yy.AST.VarDecl(decl);
+                $$ = new yy.AST.VarDecl($2);
+            }
+        }
+    ;
+
+InitVarDeclaratorList
+    : VarSpec
+        {
+            {
+                $$ = [$1];
+            }
+        }
+    | InitVarDeclaratorList ',' VarSpec
+        {
+            {
+                $1.push($3);
+                $$ = $1;
+            }
+        }
+    ;
+
+VarSpec
+    : InitDeclarator VarType VarValue
+        {
+            {
+                $$ = new yy.AST.ValueSpec('var', $1, $3, $2);
             }
         }
     ;
@@ -507,10 +531,10 @@ VarValue
     : %empty
         {
             {
-                $$ = [];
+                $$ = null;
             }
         }
-    | '=' InitializerList
+    | '=' Expression
         {
             {
                 $$ = $2;
@@ -519,11 +543,35 @@ VarValue
     ;
 
 ConstDeclaration
-    : 'const' InitDeclaratorList ConstType ConstValue
+    : 'const' InitConstDeclaratorList
         {
             {
-                const decl = new yy.AST.ValueSpec('const', $2, $4, $3);
-                $$ = new yy.AST.ConstDecl(decl);
+                $$ = new yy.AST.ConstDecl($2);
+            }
+        }
+    ;
+
+InitConstDeclaratorList
+    : ConstSpec
+        {
+            {
+                $$ = [$1];
+            }
+        }
+    | InitConstDeclaratorList ',' ConstSpec
+        {
+            {
+                $1.push($3);
+                $$ = $1;
+            }
+        }
+    ;
+
+ConstSpec
+    : InitDeclarator ConstType ConstValue
+        {
+            {
+                $$ = new yy.AST.ValueSpec('const', $1, $3, $2);
             }
         }
     ;
@@ -544,7 +592,7 @@ ConstType
     ;
 
 ConstValue
-    : '=' InitializerList
+    : '=' Expression
         {
             {
                 $$ = $2;
@@ -764,12 +812,6 @@ Statement
                 $$ = $1;
             }
         }
-    | AssignmentStatement Sep
-        {
-            {
-                $$ = $1;
-            }
-        }
     | ExpressionStatement Sep
         {
             {
@@ -905,7 +947,7 @@ LoopInit
                 $$ = $1;
             }
         }
-    | AssignmentStatement
+    | Expression
         {
             {
                 $$ = $1;
@@ -959,43 +1001,35 @@ LoopBody
         }
     ;
 
-AssignmentStatement
-    : Lhs AssigmentOperator Rhs
+ExpressionStatement
+    : Expression
         {
             {
-                $$ = new yy.AST.Assign($1, $2, $3);
+                $$ = new yy.AST.ExprStmt($1);
             }
         }
     ;
 
-Lhs
-    : ExpressionStatement
+Expression
+    : AssignmentExpression
         {
             {
-                $$ = [$1];
-            }
-        }
-    | Lhs ',' ExpressionStatement
-        {
-            {
-                $1.push($3);
                 $$ = $1;
             }
         }
     ;
 
-Rhs
+AssignmentExpression
     : ConditionalExpression
         {
             {
-                $$ = [$1];
+                $$ = $1;
             }
         }
-    | Rhs ',' ConditionalExpression
+    | PostfixExpression AssigmentOperator ConditionalExpression
         {
             {
-                $1.push($3);
-                $$ = $1;
+                $$ = new yy.AST.Assign($1, $2, $3);
             }
         }
     ;
@@ -1065,24 +1099,6 @@ AssigmentOperator
         {
             {
                 $$ = new yy.Token($1, '>>=', yyleng, yylineno, yy.lexer.yylloc);
-            }
-        }
-    ;
-
-ExpressionStatement
-    : Expression
-        {
-            {
-                $$ = new yy.AST.ExprStmt($1);
-            }
-        }
-    ;
-
-Expression
-    : ConditionalExpression
-        {
-            {
-                $$ = $1;
             }
         }
     ;

@@ -1,21 +1,20 @@
 import { Token } from '../lexer/token.js';
 import { Type } from '../type/index.js';
-import { arrCopy, arrEqual } from '../util/index.js';
 import { Expression, Kind, Node, Statement, Visitor } from './index.js';
 
-export type AssignStatement = 'AssignStatement';
+export type AssignExpression = 'AssignExpression';
 
 export class Assign implements Statement {
     public type: Type | null = null;
 
     constructor(
-        public lhs: Expression[],
+        public lhs: Expression,
         public operation: Token,
-        public rhs: Expression[],
+        public rhs: Expression,
     ) {}
 
     kind(): Kind {
-        return 'AssignStatement';
+        return 'AssignExpression';
     }
 
     literal(): string {
@@ -24,9 +23,9 @@ export class Assign implements Statement {
 
     copy(): Node {
         const c = new Assign(
-            arrCopy(this.lhs, (e) => e.copy()),
+            this.lhs.copy(),
             this.operation.copy(),
-            arrCopy(this.rhs, (e) => e.copy()),
+            this.rhs.copy(),
         );
         c.type = this.type?.copy() ?? null;
         return c;
@@ -37,9 +36,9 @@ export class Assign implements Statement {
 
         if (this.operation.equals(o.operation)) return false;
 
-        if (!arrEqual(this.lhs, o.lhs, (lE, rE) => lE.equals(rE))) return false;
+        if (!this.lhs.equals(o.lhs)) return false;
 
-        if (!arrEqual(this.rhs, o.rhs, (lE, rE) => lE.equals(rE))) return false;
+        if (!this.rhs.equals(o.rhs)) return false;
 
         if (this.type && o.type) return this.type.equals(o.type);
 
@@ -47,12 +46,12 @@ export class Assign implements Statement {
     }
 
     toString(): string {
-        return `${this.lhs.map((e) => e.toString()).join(', ')} ${
+        return `${this.lhs.toString()} ${
             this.operation.lexeme
-        } ${this.rhs.map((r) => r.toString()).join(', ')}`;
+        } ${this.rhs.toString()}`;
     }
 
     accept<R>(v: Visitor<R>): R {
-        return v.visitAssignStatement(this);
+        return v.visitAssignExpression(this);
     }
 }

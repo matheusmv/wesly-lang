@@ -58,7 +58,7 @@ func NewAddress(number int, zip string) Address {
 
 var alex = NewUser(1, "alex", "12345", NewAddress(145, "12444-777"));
 
-var alexCopyWithAnomObj = object{
+var alexCopyWithAnomObj = object {
     id int
     username, password string
     address Address
@@ -101,6 +101,16 @@ numbers[2][2] / 9;
 numbers[2][2] % 9;
 
 "id: " + alex.id + ", username: " + alex.username;
+
+var
+    i int = numbers[2][2],
+    j float = 1.1,
+    k char = 'a',
+    l string = "ok",
+    m bool = false,
+    n func(int,int):int = func(a, b int) int {
+        return a + b;
+    };
 `);
 
 const globalEnv = new Environment();
