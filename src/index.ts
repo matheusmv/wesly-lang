@@ -83,7 +83,24 @@ var numbers = [][]int{
     {7, 8, 9},
 };
 
-numbers[2][2];
+numbers[2][2] == 9;
+numbers[2][2] != 9;
+numbers[2][2] | 9;
+numbers[2][2] ^ 9;
+numbers[2][2] & 9;
+numbers[2][2] < 9;
+numbers[2][2] > 9;
+numbers[2][2] <= 9;
+numbers[2][2] >= 9;
+numbers[2][2] << 9;
+numbers[2][2] >> 9;
+numbers[2][2] + 9;
+numbers[2][2] - 9;
+numbers[2][2] * 9;
+numbers[2][2] / 9;
+numbers[2][2] % 9;
+
+"id: " + alex.id + ", username: " + alex.username;
 `);
 
 const globalEnv = new Environment();

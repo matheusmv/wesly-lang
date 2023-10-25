@@ -348,7 +348,11 @@ export class ObjectSpec implements Callable {
         return objInstance;
     }
 
-    callWithNamedArgs(it: Interpreter, names: string[], values: Obj[]): Obj | Error {
+    callWithNamedArgs(
+        it: Interpreter,
+        names: string[],
+        values: Obj[],
+    ): Obj | Error {
         const result = this.specContainsNames(names);
         if (isError(result)) return result;
 

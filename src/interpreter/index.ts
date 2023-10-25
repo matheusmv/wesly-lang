@@ -53,16 +53,24 @@ import {
     ReturnObject,
     StringObject,
 } from '../object/index.js';
-import { BoolType, FloatType, IntType, VoidType } from '../type/atomic.js';
+import {
+    BoolType,
+    FloatType,
+    IntType,
+    StringType,
+    VoidType,
+} from '../type/atomic.js';
 import { FuncType } from '../type/func.js';
 import { Type } from '../type/index.js';
 import { ObjType } from '../type/object.js';
 import {
     arrCopy,
+    isChar,
     isError,
     isFloat,
     isFunc,
     isInt,
+    isString,
     isTruthy,
 } from '../util/index.js';
 import { ArrType } from '../type/array.js';
@@ -382,7 +390,446 @@ export class Interpreter implements Visitor<Value | Error> {
     }
 
     visitBinaryExpression(node: Binary): Value | Error {
-        throw new Error('Method not implemented.');
+        const { token, left, right } = node;
+
+        const lVal = left.accept(this);
+        if (isError(lVal)) return lVal;
+
+        const rVal = right.accept(this);
+        if (isError(rVal)) return rVal;
+
+        switch (token.lexeme) {
+            case '==': {
+                return {
+                    type: new BoolType(),
+                    value: new BooleanObject(lVal.value.equals(rVal.value)),
+                };
+            }
+
+            case '!=': {
+                return {
+                    type: new BoolType(),
+                    value: new BooleanObject(!lVal.value.equals(rVal.value)),
+                };
+            }
+
+            case '|': {
+                const isErr = this.checkBinaryOp(token, lVal.value, rVal.value);
+                if (isErr) return isErr;
+
+                const result =
+                    (lVal.value as IntObject).value |
+                    (rVal.value as IntObject).value;
+
+                return {
+                    type: new IntType(),
+                    value: new IntObject(result),
+                };
+            }
+
+            case '^': {
+                const isErr = this.checkBinaryOp(token, lVal.value, rVal.value);
+                if (isErr) return isErr;
+
+                const result =
+                    (lVal.value as IntObject).value ^
+                    (rVal.value as IntObject).value;
+
+                return {
+                    type: new IntType(),
+                    value: new IntObject(result),
+                };
+            }
+
+            case '&': {
+                const isErr = this.checkBinaryOp(token, lVal.value, rVal.value);
+                if (isErr) return isErr;
+
+                const result =
+                    (lVal.value as IntObject).value &
+                    (rVal.value as IntObject).value;
+
+                return {
+                    type: new IntType(),
+                    value: new IntObject(result),
+                };
+            }
+
+            case '<': {
+                const isErr = this.checkBinaryOp(token, lVal.value, rVal.value);
+                if (isErr) return isErr;
+
+                const result =
+                    this.getValueOfNumber(lVal.value) <
+                    this.getValueOfNumber(rVal.value);
+
+                return {
+                    type: new BoolType(),
+                    value: new BooleanObject(result),
+                };
+            }
+
+            case '>': {
+                const isErr = this.checkBinaryOp(token, lVal.value, rVal.value);
+                if (isErr) return isErr;
+
+                const result =
+                    this.getValueOfNumber(lVal.value) >
+                    this.getValueOfNumber(rVal.value);
+
+                return {
+                    type: new BoolType(),
+                    value: new BooleanObject(result),
+                };
+            }
+
+            case '<=': {
+                const isErr = this.checkBinaryOp(token, lVal.value, rVal.value);
+                if (isErr) return isErr;
+
+                const result =
+                    this.getValueOfNumber(lVal.value) <=
+                    this.getValueOfNumber(rVal.value);
+
+                return {
+                    type: new BoolType(),
+                    value: new BooleanObject(result),
+                };
+            }
+
+            case '>=': {
+                const isErr = this.checkBinaryOp(token, lVal.value, rVal.value);
+                if (isErr) return isErr;
+
+                const result =
+                    this.getValueOfNumber(lVal.value) >=
+                    this.getValueOfNumber(rVal.value);
+
+                return {
+                    type: new BoolType(),
+                    value: new BooleanObject(result),
+                };
+            }
+
+            case '<<': {
+                const isErr = this.checkBinaryOp(token, lVal.value, rVal.value);
+                if (isErr) return isErr;
+
+                const result =
+                    this.getValueOfNumber(lVal.value) <<
+                    this.getValueOfNumber(rVal.value);
+
+                return {
+                    type: new IntType(),
+                    value: new IntObject(result),
+                };
+            }
+
+            case '>>': {
+                const isErr = this.checkBinaryOp(token, lVal.value, rVal.value);
+                if (isErr) return isErr;
+
+                const result =
+                    this.getValueOfNumber(lVal.value) >>
+                    this.getValueOfNumber(rVal.value);
+
+                return {
+                    type: new IntType(),
+                    value: new IntObject(result),
+                };
+            }
+
+            case '+': {
+                const isErr = this.checkBinaryOp(token, lVal.value, rVal.value);
+                if (isErr) return isErr;
+
+                const lStrOrChr = isString(lVal.value) || isChar(lVal.value);
+                const rStrOrChr = isString(rVal.value) || isChar(rVal.value);
+                if (lStrOrChr && rStrOrChr) {
+                    const result =
+                        this.getValurOfStr(lVal.value) +
+                        this.getValurOfStr(rVal.value);
+
+                    return {
+                        type: new StringType(),
+                        value: new StringObject(result),
+                    };
+                }
+
+                if (lStrOrChr && !rStrOrChr) {
+                    const result =
+                        this.getValurOfStr(lVal.value) +
+                        this.getValueOfNumber(rVal.value);
+
+                    return {
+                        type: new StringType(),
+                        value: new StringObject(result),
+                    };
+                }
+
+                if (!lStrOrChr && rStrOrChr) {
+                    const result =
+                        this.getValueOfNumber(lVal.value) +
+                        this.getValurOfStr(rVal.value);
+
+                    return {
+                        type: new StringType(),
+                        value: new StringObject(result),
+                    };
+                }
+
+                const result =
+                    this.getValueOfNumber(lVal.value) +
+                    this.getValueOfNumber(rVal.value);
+
+                if (isFloat(lVal.value) || isFloat(rVal.value)) {
+                    return {
+                        type: new FloatType(),
+                        value: new FloatObject(result),
+                    };
+                }
+
+                return {
+                    type: new IntType(),
+                    value: new IntObject(result),
+                };
+            }
+
+            case '-': {
+                const isErr = this.checkBinaryOp(token, lVal.value, rVal.value);
+                if (isErr) return isErr;
+
+                const result =
+                    this.getValueOfNumber(lVal.value) -
+                    this.getValueOfNumber(rVal.value);
+
+                if (isFloat(lVal.value) || isFloat(rVal.value)) {
+                    return {
+                        type: new FloatType(),
+                        value: new FloatObject(result),
+                    };
+                }
+
+                return {
+                    type: new IntType(),
+                    value: new IntObject(result),
+                };
+            }
+
+            case '*': {
+                const isErr = this.checkBinaryOp(token, lVal.value, rVal.value);
+                if (isErr) return isErr;
+
+                const result =
+                    this.getValueOfNumber(lVal.value) *
+                    this.getValueOfNumber(rVal.value);
+
+                if (isFloat(lVal.value) || isFloat(rVal.value)) {
+                    return {
+                        type: new FloatType(),
+                        value: new FloatObject(result),
+                    };
+                }
+
+                return {
+                    type: new IntType(),
+                    value: new IntObject(result),
+                };
+            }
+
+            case '/': {
+                const isErr = this.checkBinaryOp(token, lVal.value, rVal.value);
+                if (isErr) return isErr;
+
+                const result =
+                    this.getValueOfNumber(lVal.value) /
+                    this.getValueOfNumber(rVal.value);
+
+                if (isFloat(lVal.value) || isFloat(rVal.value)) {
+                    return {
+                        type: new FloatType(),
+                        value: new FloatObject(result),
+                    };
+                }
+
+                return {
+                    type: new IntType(),
+                    value: new IntObject(result),
+                };
+            }
+
+            case '%': {
+                const isErr = this.checkBinaryOp(token, lVal.value, rVal.value);
+                if (isErr) return isErr;
+
+                const result =
+                    this.getValueOfNumber(lVal.value) %
+                    this.getValueOfNumber(rVal.value);
+
+                if (isFloat(lVal.value) || isFloat(rVal.value)) {
+                    return {
+                        type: new FloatType(),
+                        value: new FloatObject(result),
+                    };
+                }
+
+                return {
+                    type: new IntType(),
+                    value: new IntObject(result),
+                };
+            }
+
+            default: {
+                return new Error(`invalid expression: ${node.toString()}`);
+            }
+        }
+    }
+
+    private getValueOfNumber(o: Obj): number {
+        if (isInt(o)) return o.value;
+
+        return (o as FloatObject).value;
+    }
+
+    private getValurOfStr(o: Obj): string {
+        if (isString(o)) return o.value;
+
+        return (o as CharObject).value;
+    }
+
+    private checkBinaryOp(
+        operator: Token,
+        left: Obj,
+        right: Obj,
+    ): undefined | Error {
+        switch (operator.lexeme) {
+            case '|': {
+                if (!isInt(left) || !isInt(right))
+                    return new Error(
+                        `bad operand types for binary operator '${
+                            operator.lexeme
+                        }'
+                            ${left.toString()} ${
+                                operator.lexeme
+                            } ${right.toString()}`,
+                    );
+                return;
+            }
+
+            case '^': {
+                if (!isInt(left) || !isInt(right))
+                    return new Error(
+                        `bad operand types for binary operator '${
+                            operator.lexeme
+                        }'
+                            ${left.toString()} ${
+                                operator.lexeme
+                            } ${right.toString()}`,
+                    );
+                return;
+            }
+
+            case '&': {
+                if (!isInt(left) || !isInt(right))
+                    return new Error(
+                        `bad operand types for binary operator '${
+                            operator.lexeme
+                        }'
+                            ${left.toString()} ${
+                                operator.lexeme
+                            } ${right.toString()}`,
+                    );
+                return;
+            }
+
+            case '<': {
+                return this.checkNumberOperands(operator, left, right);
+            }
+
+            case '>': {
+                return this.checkNumberOperands(operator, left, right);
+            }
+
+            case '<=': {
+                return this.checkNumberOperands(operator, left, right);
+            }
+
+            case '>=': {
+                return this.checkNumberOperands(operator, left, right);
+            }
+
+            case '<<': {
+                if (!isInt(left) || !isInt(right))
+                    return new Error(
+                        `bad operand types for binary operator '${
+                            operator.lexeme
+                        }'
+                            ${left.toString()} ${
+                                operator.lexeme
+                            } ${right.toString()}`,
+                    );
+                return;
+            }
+
+            case '>>': {
+                if (!isInt(left) || !isInt(right))
+                    return new Error(
+                        `bad operand types for binary operator '${
+                            operator.lexeme
+                        }'
+                            ${left.toString()} ${
+                                operator.lexeme
+                            } ${right.toString()}`,
+                    );
+                return;
+            }
+
+            case '+': {
+                const lStrOrChr = isString(left) || isChar(left);
+                const rStrOrChr = isString(right) || isChar(right);
+                if (lStrOrChr || rStrOrChr) return;
+
+                return this.checkNumberOperands(operator, left, right);
+            }
+
+            case '-': {
+                return this.checkNumberOperands(operator, left, right);
+            }
+
+            case '*': {
+                return this.checkNumberOperands(operator, left, right);
+            }
+
+            case '/': {
+                return this.checkNumberOperands(operator, left, right);
+            }
+
+            case '%': {
+                return this.checkNumberOperands(operator, left, right);
+            }
+
+            default: {
+                return new Error(
+                    `invalid expression: ${left.toString()} ${
+                        operator.lexeme
+                    } ${right.toString()}`,
+                );
+            }
+        }
+    }
+
+    private checkNumberOperands(
+        operator: Token,
+        l: Obj,
+        r: Obj,
+    ): undefined | Error {
+        const lIsNumber = l instanceof IntObject || l instanceof FloatObject;
+        const rIsNumber = r instanceof IntObject || r instanceof FloatObject;
+        if (lIsNumber && rIsNumber) return;
+        return new Error(
+            `${operator.lexeme}: operands must be numbers
+                ${l.toString()} ${operator.lexeme} ${r.toString()}`,
+        );
     }
 
     visitUnaryExpression(node: Unary): Value | Error {
