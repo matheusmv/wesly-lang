@@ -42,7 +42,9 @@ import { Token } from '../lexer/token.js';
 import {
     ArrayObject,
     BooleanObject,
+    BreakObject,
     CharObject,
+    ContinueObject,
     FloatObject,
     FunctionObject,
     IntObject,
@@ -64,8 +66,10 @@ import { FuncType } from '../type/func.js';
 import { Type } from '../type/index.js';
 import { ObjType } from '../type/object.js';
 import {
+    isBreak,
     isCallable,
     isChar,
+    isContinue,
     isError,
     isFloat,
     isFunc,
@@ -179,57 +183,82 @@ export class Interpreter implements Visitor<Value | Error> {
         return node.stmt.accept(this);
     }
 
-    execBlock(nodes: Node[], env: Env<Value>) {
+    execBlock(nodes: Node[], env: Env<Value>): Value | Error {
         const prev = this.env;
+
+        let vl = {} as Value | Error;
+        let skip = false;
 
         try {
             this.env = env;
 
             for (const node of nodes) {
-                const vl = node.accept(this);
+                if (!skip) {
+                    vl = node.accept(this);
+                } else {
+                    skip = false;
+                }
+
                 if (isError(vl)) {
                     this.env = prev;
                     return vl;
                 }
+
+                if (isReturn(vl.value) || isBreak(vl.value)) {
+                    this.env = prev;
+                    return vl;
+                }
+
+                skip = isContinue(vl.value);
             }
         } finally {
             this.env = prev;
         }
+
+        return vl;
     }
 
     visitBlockStmt(node: Block): Value | Error {
-        const vl = this.execBlock(node.declarations, new Environment(this.env));
-        if (isError(vl)) return vl;
-
-        return {
-            type: new VoidType(),
-            value: new NilObject(),
-        };
+        return this.execBlock(node.declarations, new Environment(this.env));
     }
 
     visitContinueStmt(node: ContinueStmt): Error | Value {
-        throw new Error('Method not implemented.');
+        return {
+            type: {} as Type,
+            value: new ContinueObject(),
+        };
     }
 
     visitBreakStmt(node: BreakStmt): Error | Value {
-        throw new Error('Method not implemented.');
+        return {
+            type: {} as Type,
+            value: new BreakObject(),
+        };
     }
 
     visitReturnStmt(node: ReturnStmt): Value | Error {
-        if (!node.result) {
-            throw new ReturnObject({
+        const { result } = node;
+
+        if (!result) {
+            return {
                 type: new VoidType(),
-                value: new NilObject(),
-            });
+                value: new ReturnObject({
+                    type: new VoidType(),
+                    value: new NilObject(),
+                }),
+            };
         }
 
-        const expr = node.result.accept(this);
-        if (isError(expr)) throw expr;
+        const rtrnValue = result.accept(this);
+        if (isError(rtrnValue)) return rtrnValue;
 
-        throw new ReturnObject({
-            type: expr.type,
-            value: expr.value,
-        });
+        return {
+            type: rtrnValue.type?.copy(),
+            value: new ReturnObject({
+                type: rtrnValue.type,
+                value: rtrnValue.value,
+            }),
+        };
     }
 
     visitIfStatement(node: IfStmt): Value | Error {
@@ -248,30 +277,111 @@ export class Interpreter implements Visitor<Value | Error> {
         };
     }
 
+    private runAsUndef(body: Block) {
+        for (;;) {
+            const vl = body.accept(this);
+            if (isError(vl)) return vl;
+            if (isReturn(vl.value)) return vl;
+            if (isBreak(vl.value)) {
+                return {
+                    type: new VoidType(),
+                    value: new NilObject(),
+                };
+            }
+        }
+    }
+
+    private execLoop(cond: Expression, body: Block, post?: () => void) {
+        let result: Value | Error = {
+            type: new VoidType(),
+            value: new NilObject(),
+        };
+
+        for (;;) {
+            result = cond.accept(this);
+            if (isError(result)) return result;
+
+            if (!isTruthy(result.value)) {
+                break;
+            }
+
+            result = body.accept(this);
+
+            if (isError(result)) return result;
+            if (isReturn(result.value)) return result;
+            if (isBreak(result.value)) {
+                return {
+                    type: new VoidType(),
+                    value: new NilObject(),
+                };
+            }
+
+            if (post) post();
+        }
+
+        return {
+            type: new VoidType(),
+            value: new NilObject(),
+        };
+    }
+
     visitLoopStatement(node: LoopStmt): Value | Error {
         const { actLike, init, cond, post, body } = node;
 
         switch (actLike) {
             case 'Undef': {
-                for (;;) {
-                    const err = this.execBlock(
-                        body.declarations,
-                        new Environment(this.env),
-                    );
-                    if (isError(err)) return err;
-                }
+                return this.runAsUndef(body);
             }
 
             case 'While': {
+                if (cond) {
+                    return this.execLoop(cond, body);
+                }
+
                 break;
             }
 
             case 'For': {
+                if (!init && !cond && !post) {
+                    return this.runAsUndef(body);
+                }
+
+                const prev = this.env;
+                this.env = new Environment(prev);
+
+                try {
+                    if (init) {
+                        const vl = init.accept(this);
+                        if (isError(vl)) return vl;
+                    }
+
+                    if (cond) {
+                        return this.execLoop(cond, body, () => {
+                            if (post) {
+                                const vls = post.map((expr) =>
+                                    expr.accept(this),
+                                );
+                                for (const vl of vls) {
+                                    if (isError(vl)) return vl;
+                                }
+                            }
+                        });
+                    }
+                } finally {
+                    this.env = prev;
+                }
+
                 break;
             }
+
+            default:
+                return new Error(`invalid statement: ${node.toString()}`);
         }
 
-        return new Error(`invalid statement: ${node.toString()}`);
+        return {
+            type: new VoidType(),
+            value: new NilObject(),
+        };
     }
 
     private execMemberAssign(
@@ -1038,10 +1148,7 @@ export class Interpreter implements Visitor<Value | Error> {
         const result = func.call(this, funcArgs as Value[]);
         if (isError(result)) return result;
 
-        return {
-            type: (func.type as FuncType)?.returnType,
-            value: result,
-        };
+        return result;
     }
 
     visitObjectMemberExpression(node: ObjectMember): Value | Error {
@@ -1090,12 +1197,7 @@ export class Interpreter implements Visitor<Value | Error> {
             specValues,
         );
 
-        if (isError(objValue)) return objValue;
-
-        return {
-            type: vl.type?.copy(),
-            value: objValue,
-        };
+        return objValue;
     }
 
     visitObjectInlineInitExpression(node: ObjectInlineInit): Value | Error {
@@ -1113,12 +1215,7 @@ export class Interpreter implements Visitor<Value | Error> {
             type.copy() as ObjType,
         ).callWithNamedArgs(this, specFields, specValues);
 
-        if (isError(objValue)) return objValue;
-
-        return {
-            type: type.copy(),
-            value: objValue,
-        };
+        return objValue;
     }
 
     visitObjectFieldExpression(node: ObjectField): Value | Error {

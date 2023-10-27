@@ -279,7 +279,7 @@ export class ContinueObject implements Obj {
 }
 
 export interface Callable {
-    call(it: Interpreter, args: Value[]): Obj | Error;
+    call(it: Interpreter, args: Value[]): Value | Error;
 }
 
 export class FunctionObject implements Callable, Obj {
@@ -289,7 +289,7 @@ export class FunctionObject implements Callable, Obj {
         public type: Type,
     ) {}
 
-    call(it: Interpreter, args: Value[]): Obj | Error {
+    call(it: Interpreter, args: Value[]): Value | Error {
         const params = this.params.parseList();
 
         const funcEnv = new Environment(it.env);
@@ -298,17 +298,26 @@ export class FunctionObject implements Callable, Obj {
             funcEnv.define(params[i].name, args[i]);
         }
 
-        try {
-            it.execBlock(this.body.declarations, funcEnv);
-        } catch (rt) {
-            if (isReturn(rt) && rt.value) {
-                return rt.value.value;
+        const rt = it.execBlock(this.body.declarations, funcEnv);
+        return this.unwrapReturnValue(rt);
+    }
+
+    private unwrapReturnValue(value: Value | Error): Value | Error {
+        if (isError(value)) return value;
+
+        if (isReturn(value.value)) {
+            const rtrnObj = value.value;
+            if (rtrnObj.value) {
+                return rtrnObj.value;
             }
 
-            if (isError(rt)) return rt;
+            return {
+                type: new VoidType(),
+                value: new NilObject(),
+            };
         }
 
-        return new NilObject();
+        return value;
     }
 
     kind(): ObjKind {
@@ -343,20 +352,26 @@ export class ObjectSpec implements Callable, Obj {
         this.anonymous = name === '';
     }
 
-    call(it: Interpreter, args: Value[]): Obj | Error {
+    call(it: Interpreter, args: Value[]): Value | Error {
         const objInstance = new ObjectInstance(this, new Map());
-        return objInstance;
+        return {
+            type: this.spec?.copy(),
+            value: objInstance,
+        };
     }
 
     callWithNamedArgs(
         it: Interpreter,
         names: string[],
         values: Obj[],
-    ): Obj | Error {
+    ): Value | Error {
         const result = this.specContainsNames(names);
         if (isError(result)) return result;
 
-        return new ObjectInstance(this, this.specTable(names, values));
+        return {
+            type: this.spec?.copy(),
+            value: new ObjectInstance(this, this.specTable(names, values)),
+        };
     }
 
     private specContainsNames(names: string[]): Error | null {

@@ -17,7 +17,10 @@ export function printlnFunc(): EnvProperty {
             call(it: Interpreter, args: Value[]) {
                 const objs = args.map((vl) => vl.value.toString()).join('');
                 console.log(objs);
-                return new NilObject();
+                return {
+                    type: new VoidType(),
+                    value: new NilObject(),
+                };
             },
         };
     };
