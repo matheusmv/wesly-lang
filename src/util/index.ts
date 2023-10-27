@@ -74,6 +74,10 @@ export function isFunc(o: unknown): o is FunctionObject {
     return o instanceof FunctionObject;
 }
 
+export function isCallable(o: unknown): o is FunctionObject {
+    return typeof o === 'object' && o !== null && 'call' in o;
+}
+
 export function isArray(o: unknown): o is ArrayObject {
     return o instanceof ArrayObject;
 }

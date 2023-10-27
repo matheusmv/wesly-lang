@@ -1,6 +1,6 @@
 import { Block } from '../ast/block-stmt.js';
 import { FieldList } from '../ast/field-decl.js';
-import { Env, Value } from './environment.js';
+import { Env, Environment, Value } from './environment.js';
 import { Interpreter } from '../interpreter/index.js';
 import { VoidType } from '../type/atomic.js';
 import { Type } from '../type/index.js';
@@ -278,13 +278,12 @@ export class ContinueObject implements Obj {
     }
 }
 
-export interface Callable extends Obj {
+export interface Callable {
     call(it: Interpreter, args: Value[]): Obj | Error;
 }
 
-export class FunctionObject implements Callable {
+export class FunctionObject implements Callable, Obj {
     constructor(
-        public env: Env<Value>,
         public params: FieldList,
         public body: Block,
         public type: Type,
@@ -293,12 +292,14 @@ export class FunctionObject implements Callable {
     call(it: Interpreter, args: Value[]): Obj | Error {
         const params = this.params.parseList();
 
+        const funcEnv = new Environment(it.env);
+
         for (let i = 0; i < params.length; i++) {
-            this.env.define(params[i].name, args[i]);
+            funcEnv.define(params[i].name, args[i]);
         }
 
         try {
-            it.execBlock(this.body.declarations, this.env);
+            it.execBlock(this.body.declarations, funcEnv);
         } catch (rt) {
             if (isReturn(rt) && rt.value) {
                 return rt.value.value;
@@ -316,7 +317,6 @@ export class FunctionObject implements Callable {
 
     copy(): Obj {
         return new FunctionObject(
-            this.env,
             this.params.copy() as FieldList,
             this.body.copy() as Block,
             this.type?.copy(),
@@ -333,7 +333,7 @@ export class FunctionObject implements Callable {
     }
 }
 
-export class ObjectSpec implements Callable {
+export class ObjectSpec implements Callable, Obj {
     public anonymous: boolean;
 
     constructor(

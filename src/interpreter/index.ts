@@ -64,26 +64,20 @@ import { FuncType } from '../type/func.js';
 import { Type } from '../type/index.js';
 import { ObjType } from '../type/object.js';
 import {
+    isCallable,
     isChar,
     isError,
     isFloat,
     isFunc,
     isInt,
+    isReturn,
     isString,
     isTruthy,
 } from '../util/index.js';
 import { ArrType } from '../type/array.js';
 
 export class Interpreter implements Visitor<Value | Error> {
-    constructor(private env: Env<Value>) {}
-
-    visitContinueStmt(node: ContinueStmt): Error | Value {
-        throw new Error('Method not implemented.');
-    }
-
-    visitBreakStmt(node: BreakStmt): Error | Value {
-        throw new Error('Method not implemented.');
-    }
+    constructor(public env: Env<Value>) {}
 
     visitVarDecl(node: VarDecl): Value | Error {
         const { decl } = node;
@@ -152,11 +146,9 @@ export class Interpreter implements Visitor<Value | Error> {
         if (this.env.exists(name.token))
             return new Error(`'${name.name}': already defined`);
 
-        const funcEnv = new Environment(this.env);
-
         this.env.define(name.name, {
             type: type?.copy() as Type,
-            value: new FunctionObject(funcEnv, params, body, type as Type),
+            value: new FunctionObject(params, body, type as Type),
         });
 
         return {
@@ -215,6 +207,14 @@ export class Interpreter implements Visitor<Value | Error> {
         };
     }
 
+    visitContinueStmt(node: ContinueStmt): Error | Value {
+        throw new Error('Method not implemented.');
+    }
+
+    visitBreakStmt(node: BreakStmt): Error | Value {
+        throw new Error('Method not implemented.');
+    }
+
     visitReturnStmt(node: ReturnStmt): Value | Error {
         if (!node.result) {
             throw new ReturnObject({
@@ -249,7 +249,29 @@ export class Interpreter implements Visitor<Value | Error> {
     }
 
     visitLoopStatement(node: LoopStmt): Value | Error {
-        throw new Error('Method not implemented.');
+        const { actLike, init, cond, post, body } = node;
+
+        switch (actLike) {
+            case 'Undef': {
+                for (;;) {
+                    const err = this.execBlock(
+                        body.declarations,
+                        new Environment(this.env),
+                    );
+                    if (isError(err)) return err;
+                }
+            }
+
+            case 'While': {
+                break;
+            }
+
+            case 'For': {
+                break;
+            }
+        }
+
+        return new Error(`invalid statement: ${node.toString()}`);
     }
 
     private execMemberAssign(
@@ -1003,7 +1025,7 @@ export class Interpreter implements Visitor<Value | Error> {
         if (isError(val)) return val;
 
         const func = val.value;
-        if (!isFunc(func))
+        if (!isCallable(func))
             return new Error(
                 `invalid operation: cannot call non-function: ${callee.toString()}`,
             );
@@ -1121,11 +1143,9 @@ export class Interpreter implements Visitor<Value | Error> {
     visitFunctionExpression(node: FuncExpr): Value | Error {
         const { params, body, type } = node;
 
-        const funcEnv = new Environment(this.env);
-
         return {
             type: type?.copy() as Type,
-            value: new FunctionObject(funcEnv, params, body, type as Type),
+            value: new FunctionObject(params, body, type as Type),
         };
     }
 

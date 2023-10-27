@@ -8,6 +8,7 @@ import Types from './type/index.js';
 import { Environment } from './object/environment.js';
 import { Interpreter } from './interpreter/index.js';
 import { isError } from './util/index.js';
+import { EnvProperty, printlnFunc } from './interpreter/global.js';
 
 parser.yy = {
     Token,
@@ -83,24 +84,24 @@ var numbers = [][]int{
     {7, 8, 9},
 };
 
-numbers[2][2] == 9;
-numbers[2][2] != 9;
-numbers[2][2] | 9;
-numbers[2][2] ^ 9;
-numbers[2][2] & 9;
-numbers[2][2] < 9;
-numbers[2][2] > 9;
-numbers[2][2] <= 9;
-numbers[2][2] >= 9;
-numbers[2][2] << 9;
-numbers[2][2] >> 9;
-numbers[2][2] + 9;
-numbers[2][2] - 9;
-numbers[2][2] * 9;
-numbers[2][2] / 9;
-numbers[2][2] % 9;
+println(numbers[2][2] == 9);
+println(numbers[2][2] != 9);
+println(numbers[2][2] | 9);
+println(numbers[2][2] ^ 9);
+println(numbers[2][2] & 9);
+println(numbers[2][2] < 9);
+println(numbers[2][2] > 9);
+println(numbers[2][2] <= 9);
+println(numbers[2][2] >= 9);
+println(numbers[2][2] << 9);
+println(numbers[2][2] >> 9);
+println(numbers[2][2] + 9);
+println(numbers[2][2] - 9);
+println(numbers[2][2] * 9);
+println(numbers[2][2] / 9);
+println(numbers[2][2] % 9);
 
-"id: " + alex.id + ", username: " + alex.username;
+println("id: " + alex.id + ", username: " + alex.username);
 
 var
     i int = numbers[2][2],
@@ -111,9 +112,30 @@ var
     n func(int,int):int = func(a, b int) int {
         return a + b;
     };
+
+func fib(num int) int {
+    if (num <= 1) {
+        return num;
+    }
+
+    return fib(num - 1) + fib(num - 2);
+}
+
+println(fib(7));
+
+println(alex.username);
 `);
 
+function setGlobalEnv(env: Environment, props: EnvProperty[]) {
+    for (const { name, value } of props) {
+        env.define(name, value);
+    }
+}
+
 const globalEnv = new Environment();
+
+setGlobalEnv(globalEnv, [printlnFunc()]);
+
 const interpreter = new Interpreter(globalEnv);
 
 function run(nodes: Node[], it: Interpreter) {
@@ -122,8 +144,6 @@ function run(nodes: Node[], it: Interpreter) {
         if (isError(v)) {
             console.error(v);
             break;
-        } else {
-            console.log(v.value.toString());
         }
     }
 }
