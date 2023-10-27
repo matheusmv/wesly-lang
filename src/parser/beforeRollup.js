@@ -7,12 +7,21 @@ const filePath = resolve(__dirname, 'src', 'parser', parserDir);
 
 let parserDirContent = readFileSync(filePath, 'utf-8');
 
-parserDirContent =
-    '// @ts-nocheck\n' + parserDirContent + '\n export default parser';
+// parserDirContent = '// @ts-nocheck\n' + parserDirContent;
+
+const es6ExportMod = `\
+export const lexer = parser.lexer;
+export { parser };
+`;
 
 parserDirContent = parserDirContent.replace(
-    /if \(typeof require(.|\n)*export default parser/,
-    'export default parser;\n',
+    /_token_stack:/,
+    '',
+);
+
+parserDirContent = parserDirContent.replace(
+    /if \(typeof require(.|\n)*/,
+    es6ExportMod,
 );
 
 writeFileSync(filePath, parserDirContent);

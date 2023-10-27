@@ -4,9 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "bison": "jison src/parser/parser.jison -o src/parser/parser.js",
+    "bison": "jison src/parser/grammar.jison -o src/parser/parser.js",
     "bison:debug": "jison -t src/parser/parser.jison -o src/parser/parser.js",
     "build": "npm run bison && node src/parser/beforeRollup.js && npx tsc",
+    "build:prod": "npm run bison && node src/parser/beforeRollup.js && npx tsc && node esbuild",
     "start": "npm run build && node dist/index.js",
     "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "eslint . --fix"
@@ -14,6 +15,7 @@
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^6.8.0",
     "@typescript-eslint/parser": "^6.8.0",
+    "esbuild": "^0.19.5",
     "eslint": "^8.51.0",
     "eslint-config-prettier": "^9.0.0",
     "eslint-plugin-prettier": "^5.0.1",

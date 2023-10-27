@@ -1,12 +1,12 @@
-import p from './parser.js';
+import * as parser from './parser.js';
 
-export type Parser = {
+type Parser = {
     yy: Record<string, any>;
     parseError: (str: string, hash: any) => void;
     parse: (input: any) => any;
 };
 
-export type ParserError = Error & {
+type ParserError = Error & {
     hash: {
         text: string;
         token: string;
@@ -14,7 +14,7 @@ export type ParserError = Error & {
         loc: {
             first_line: number;
             last_line: number;
-            first_column: 0;
+            first_column: number;
             last_column: number;
         };
         expected: string[];
@@ -22,6 +22,6 @@ export type ParserError = Error & {
     };
 };
 
-const parser = p as Parser;
+export type { ParserError };
 
-export default parser;
+export default parser.parser as Parser;
