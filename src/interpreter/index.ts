@@ -1030,7 +1030,7 @@ export class Interpreter implements Visitor<Value | Error> {
 
         const objInMemory = vl.value as ObjectInstance;
         const names = fields.map((f) => (f as Identifier).name);
-        const filedValue = objInMemory.getFiledIn(names);
+        const filedValue = objInMemory.getFieldIn(names);
         if (isError(filedValue)) return filedValue;
 
         return {

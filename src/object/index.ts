@@ -415,7 +415,7 @@ export class ObjectInstance implements Obj {
         return this.fields.get(field) ?? null;
     }
 
-    getFiledIn(names: string[]): Obj | Error {
+    getFieldIn(names: string[]): Obj | Error {
         let value: Obj = {} as Obj;
         let currentSpec = this.spec;
         let currentTable = this.fields;
