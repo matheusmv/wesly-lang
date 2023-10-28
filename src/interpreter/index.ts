@@ -72,7 +72,6 @@ import {
     isContinue,
     isError,
     isFloat,
-    isFunc,
     isInt,
     isReturn,
     isString,
@@ -384,103 +383,84 @@ export class Interpreter implements Visitor<Value | Error> {
         };
     }
 
-    private execMemberAssign(
-        op: Token,
-        l: ObjectMember,
-        r: Value,
-    ): Value | Error {
-        switch (op.lexeme) {
-            case '=': {
-                const [obj, ...fields] = l.getMembers();
+    private execMemberAssign(l: ObjectMember, r: Value): Value | Error {
+        const [obj, ...fields] = l.getMembers();
 
-                const vl = obj.accept(this);
-                if (isError(vl)) return vl;
+        const vl = obj.accept(this);
+        if (isError(vl)) return vl;
 
-                const objInMemory = vl.value as ObjectInstance;
-                const names = fields.map((f) => (f as Identifier).name);
-                const filedValue = objInMemory.findAndSet(
-                    names,
-                    names[names.length - 1],
-                    r.value,
-                );
-                if (isError(filedValue)) return filedValue;
+        const objInMemory = vl.value as ObjectInstance;
+        const names = fields.map((f) => (f as Identifier).name);
+        const filedValue = objInMemory.findAndSet(
+            names,
+            names[names.length - 1],
+            r.value,
+        );
+        if (isError(filedValue)) return filedValue;
 
-                return r;
-            }
-
-            default: {
-                return new Error(
-                    `invalid operation: ${l.toString()} ${
-                        op.lexeme
-                    } ${r.value.toString()}`,
-                );
-            }
-        }
+        return r;
     }
 
-    private execArrayAssign(
-        op: Token,
-        l: ArrayMember,
-        r: Value,
-    ): Value | Error {
-        switch (op.lexeme) {
-            case '=': {
-                const [arr, ...indxs] = l.getMembers();
+    private execArrayAssign(l: ArrayMember, r: Value): Value | Error {
+        const [arr, ...indxs] = l.getMembers();
 
-                const vl = arr.accept(this);
-                if (isError(vl)) return vl;
+        const vl = arr.accept(this);
+        if (isError(vl)) return vl;
 
-                const arrInMemory = vl.value as ArrayObject;
-                const indxsVls = indxs.map((expr) => expr.accept(this));
-                for (const idx of indxsVls) {
-                    if (isError(idx)) return idx;
-                }
-
-                const indexes = (indxsVls as Value[]).map(
-                    (vl) => (vl.value as IntObject).value,
-                );
-
-                const result = arrInMemory.findIndexAndSetValue(
-                    indexes,
-                    r.value,
-                );
-                if (isError(result)) return result;
-
-                return r;
-            }
-
-            default: {
-                return new Error(
-                    `invalid operation: ${l.toString()} ${
-                        op.lexeme
-                    } ${r.value.toString()}`,
-                );
-            }
+        const arrInMemory = vl.value as ArrayObject;
+        const indxsVls = indxs.map((expr) => expr.accept(this));
+        for (const idx of indxsVls) {
+            if (isError(idx)) return idx;
         }
+
+        const indexes = (indxsVls as Value[]).map(
+            (vl) => (vl.value as IntObject).value,
+        );
+
+        const result = arrInMemory.findIndexAndSetValue(indexes, r.value);
+        if (isError(result)) return result;
+
+        return r;
     }
 
-    private execAssign(op: Token, l: Value, r: Value): Value | Error {
-        switch (op.lexeme) {
-            case '=': {
-                l.value = r.value;
-                return l;
-            }
+    private execAssign(l: Value, r: Value): Value | Error {
+        l.value = r.value;
+        return l;
+    }
 
-            default: {
-                return new Error(
-                    `invalid operation: ${l.value.toString()} ${
-                        op.lexeme
-                    } ${r.value.toString()}`,
-                );
-            }
+    private readonly opTable = new Map<string, string>([
+        ['+=', '+'],
+        ['-=', '-'],
+        ['*=', '*'],
+        ['/=', '/'],
+        ['%=', '%'],
+        ['&=', '&'],
+        ['|=', '|'],
+        ['^=', '^'],
+        ['<<=', '<<'],
+        ['>>=', '>>'],
+    ]);
+
+    private parseRhsOperation(
+        lhs: Expression,
+        operation: Token,
+        rhs: Expression,
+    ): Binary | Expression {
+        if (operation.lexeme === '=') {
+            return rhs;
         }
+
+        const newOp = operation.copy();
+        newOp.lexeme = this.opTable.get(newOp.lexeme) as string;
+        return new Binary(lhs, newOp, rhs);
     }
 
     visitAssignExpression(node: Assign): Value | Error {
         const { lhs, operation, rhs } = node;
 
         const lExpr = lhs instanceof ExprStmt ? lhs.expr : lhs;
-        let rVal = rhs.accept(this);
+
+        let rVal = this.parseRhsOperation(lhs, operation, rhs).accept(this);
         if (isError(rVal)) return rVal;
 
         // TODO: define values and references
@@ -489,14 +469,14 @@ export class Interpreter implements Visitor<Value | Error> {
         let result: Value | Error;
 
         if (lExpr instanceof ObjectMember) {
-            result = this.execMemberAssign(operation, lExpr, rVal);
+            result = this.execMemberAssign(lExpr, rVal);
         } else if (lExpr instanceof ArrayMember) {
-            result = this.execArrayAssign(operation, lExpr, rVal);
+            result = this.execArrayAssign(lExpr, rVal);
         } else {
             const lVal = lExpr.accept(this);
             if (isError(lVal)) return lVal;
 
-            result = this.execAssign(operation, lVal, rVal);
+            result = this.execAssign(lVal, rVal);
         }
 
         if (isError(result)) {
@@ -804,6 +784,14 @@ export class Interpreter implements Visitor<Value | Error> {
             case '/': {
                 const isErr = this.checkBinaryOp(token, lVal.value, rVal.value);
                 if (isErr) return isErr;
+
+                if (this.getValueOfNumber(rVal.value) === 0) {
+                    return new Error(
+                        `${lVal.value.toString()} ${
+                            token.lexeme
+                        } ${rVal.value.toString()}: division by zero`,
+                    );
+                }
 
                 const result =
                     this.getValueOfNumber(lVal.value) /

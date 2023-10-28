@@ -8,7 +8,7 @@ import Types from './type/index.js';
 import { Environment } from './object/environment.js';
 import { Interpreter } from './interpreter/index.js';
 import { isError } from './util/index.js';
-import { EnvProperty, printlnFunc } from './interpreter/global.js';
+import { EnvProperty, lenFunc, printlnFunc } from './interpreter/global.js';
 
 parser.yy = {
     Token,
@@ -128,6 +128,20 @@ println(alex.username);
 var nums = []int{1, 2, 3};
 nums[0] = 10;
 println(nums);
+nums[0] += 1;
+
+func sum(arr []int) []int {
+    var result = 0;
+
+    loop (var i = 0; i < len(arr); i++) {
+        result += arr[i];
+    }
+
+    return result;
+}
+
+println(sum(nums));
+println(len(alex.username));
 `);
 
 function setGlobalEnv(env: Environment, props: EnvProperty[]) {
@@ -138,7 +152,7 @@ function setGlobalEnv(env: Environment, props: EnvProperty[]) {
 
 const globalEnv = new Environment();
 
-setGlobalEnv(globalEnv, [printlnFunc()]);
+setGlobalEnv(globalEnv, [printlnFunc(), lenFunc()]);
 
 const interpreter = new Interpreter(globalEnv);
 

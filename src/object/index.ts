@@ -1,6 +1,6 @@
 import { Block } from '../ast/block-stmt.js';
 import { FieldList } from '../ast/field-decl.js';
-import { Env, Environment, Value } from './environment.js';
+import { Environment, Value } from './environment.js';
 import { Interpreter } from '../interpreter/index.js';
 import { VoidType } from '../type/atomic.js';
 import { Type } from '../type/index.js';
