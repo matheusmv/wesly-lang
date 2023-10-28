@@ -418,6 +418,47 @@ export class Interpreter implements Visitor<Value | Error> {
         }
     }
 
+    private execArrayAssign(
+        op: Token,
+        l: ArrayMember,
+        r: Value,
+    ): Value | Error {
+        switch (op.lexeme) {
+            case '=': {
+                const [arr, ...indxs] = l.getMembers();
+
+                const vl = arr.accept(this);
+                if (isError(vl)) return vl;
+
+                const arrInMemory = vl.value as ArrayObject;
+                const indxsVls = indxs.map((expr) => expr.accept(this));
+                for (const idx of indxsVls) {
+                    if (isError(idx)) return idx;
+                }
+
+                const indexes = (indxsVls as Value[]).map(
+                    (vl) => (vl.value as IntObject).value,
+                );
+
+                const result = arrInMemory.findIndexAndSetValue(
+                    indexes,
+                    r.value,
+                );
+                if (isError(result)) return result;
+
+                return r;
+            }
+
+            default: {
+                return new Error(
+                    `invalid operation: ${l.toString()} ${
+                        op.lexeme
+                    } ${r.value.toString()}`,
+                );
+            }
+        }
+    }
+
     private execAssign(op: Token, l: Value, r: Value): Value | Error {
         switch (op.lexeme) {
             case '=': {
@@ -442,21 +483,22 @@ export class Interpreter implements Visitor<Value | Error> {
         let rVal = rhs.accept(this);
         if (isError(rVal)) return rVal;
 
+        // TODO: define values and references
         rVal = { type: rVal.type?.copy(), value: rVal.value?.copy() };
 
+        let result: Value | Error;
+
         if (lExpr instanceof ObjectMember) {
-            const result = this.execMemberAssign(operation, lExpr, rVal);
-            if (isError(result)) {
-                return new Error(
-                    `invalid expression: ${node.toString()}, ${result.message}`,
-                );
-            }
+            result = this.execMemberAssign(operation, lExpr, rVal);
+        } else if (lExpr instanceof ArrayMember) {
+            result = this.execArrayAssign(operation, lExpr, rVal);
+        } else {
+            const lVal = lExpr.accept(this);
+            if (isError(lVal)) return lVal;
+
+            result = this.execAssign(operation, lVal, rVal);
         }
 
-        const lVal = lExpr.accept(this);
-        if (isError(lVal)) return lVal;
-
-        const result = this.execAssign(operation, lVal, rVal);
         if (isError(result)) {
             return new Error(
                 `invalid expression: ${node.toString()}, ${result.message}`,

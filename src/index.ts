@@ -124,6 +124,10 @@ func fib(num int) int {
 println(fib(7));
 
 println(alex.username);
+
+var nums = []int{1, 2, 3};
+nums[0] = 10;
+println(nums);
 `);
 
 function setGlobalEnv(env: Environment, props: EnvProperty[]) {

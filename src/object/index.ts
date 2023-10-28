@@ -556,4 +556,30 @@ export class ArrayObject implements Obj {
 
         return size;
     }
+
+    findIndexAndSetValue(indexes: number[], value: Obj): void | Error {
+        if (ArrayObject.dimensionSize(this) < indexes.length - 1) {
+            return new Error(`out of bounds`);
+        }
+
+        let arrRef = this.objects;
+        let result;
+
+        for (let i = 0; i < indexes.length; i++) {
+            result = arrRef[indexes[i]];
+            if (!result) {
+                return new Error(`out of bounds`);
+            }
+
+            if (Array.isArray(result)) {
+                arrRef = result;
+            }
+
+            if (i + 1 == indexes.length) {
+                arrRef[indexes[i]] = value;
+            }
+        }
+
+        return;
+    }
 }
