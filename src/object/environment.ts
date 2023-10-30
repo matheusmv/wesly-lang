@@ -5,6 +5,7 @@ import { Type } from '../type/index.js';
 export type Value = {
     type: Type;
     value: Obj;
+    const?: boolean;
 };
 
 export interface Env<T> {

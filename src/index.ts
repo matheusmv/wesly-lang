@@ -130,7 +130,7 @@ nums[0] = 10;
 println(nums);
 nums[0] += 1;
 
-func sum(arr []int) []int {
+func sum(arr []int) int {
     var result = 0;
 
     loop (var i = 0; i < len(arr); i++) {
@@ -142,6 +142,9 @@ func sum(arr []int) []int {
 
 println(sum(nums));
 println(len(alex.username));
+
+const PI = 3.14;
+println(PI);
 `);
 
 function setGlobalEnv(env: Environment, props: EnvProperty[]) {

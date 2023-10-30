@@ -36,7 +36,7 @@ import {
 import { ReturnStmt } from '../ast/return-stmt.js';
 import { Unary } from '../ast/unary-expr.js';
 import { Update } from '../ast/update-expr.js';
-import { VarDecl, ConstDecl } from '../ast/value-decl.js';
+import { VarDecl, ConstDecl, ValueSpec } from '../ast/value-decl.js';
 import { Env, Environment, Value } from '../object/environment.js';
 import { Token } from '../lexer/token.js';
 import {
@@ -82,9 +82,13 @@ import { ArrType } from '../type/array.js';
 export class Interpreter implements Visitor<Value | Error> {
     constructor(public env: Env<Value>) {}
 
-    visitVarDecl(node: VarDecl): Value | Error {
-        const { decl } = node;
-
+    private execDecl(
+        decl: ValueSpec[],
+        action: (
+            token: Token,
+            value: { type?: Type; value?: Expression },
+        ) => void | Error,
+    ): Value | Error {
         const names = decl.map((expr) => (expr.name as Identifier).token);
         for (const name of names) {
             if (this.env.exists(name)) {
@@ -101,6 +105,20 @@ export class Interpreter implements Visitor<Value | Error> {
             const name = names[i];
             const value = specTypeExprList[i];
 
+            const result = action(name, value);
+            if (isError(result)) return result;
+        }
+
+        return {
+            type: new VoidType(),
+            value: new NilObject(),
+        };
+    }
+
+    visitVarDecl(node: VarDecl): Value | Error {
+        const { decl } = node;
+
+        return this.execDecl(decl, (name, value) => {
             if (this.env.exists(name)) {
                 return new Error(
                     `'${
@@ -123,16 +141,38 @@ export class Interpreter implements Visitor<Value | Error> {
                     value: exprVal.value.copy(),
                 });
             }
-        }
-
-        return {
-            type: new VoidType(),
-            value: new NilObject(),
-        };
+        });
     }
 
     visitConstDecl(node: ConstDecl): Value | Error {
-        throw new Error('Method not implemented.');
+        const { decl } = node;
+
+        return this.execDecl(decl, (name, value) => {
+            if (this.env.exists(name)) {
+                return new Error(
+                    `'${
+                        name.lexeme
+                    }': redeclared in this block\n\n\t${node.toString()}`,
+                );
+            }
+
+            if (!value.value) {
+                this.env.define(name.lexeme, {
+                    type: value.type?.copy() as Type,
+                    value: new NilObject(),
+                    const: true,
+                });
+            } else {
+                const exprVal = value.value.accept(this);
+                if (isError(exprVal)) return exprVal;
+
+                this.env.define(name.lexeme, {
+                    type: exprVal.type?.copy(),
+                    value: exprVal.value?.copy(),
+                    const: true,
+                });
+            }
+        });
     }
 
     visitFieldDecl(node: Field): Value | Error {
@@ -424,6 +464,10 @@ export class Interpreter implements Visitor<Value | Error> {
     }
 
     private execAssign(l: Value, r: Value): Value | Error {
+        if (l.const) {
+            return new Error(`assignment to constant variable`);
+        }
+
         l.value = r.value;
         return l;
     }
