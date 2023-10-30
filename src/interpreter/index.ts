@@ -43,6 +43,7 @@ import {
     ArrayObject,
     BooleanObject,
     BreakObject,
+    Callable,
     CharObject,
     ContinueObject,
     FloatObject,
@@ -77,6 +78,7 @@ import {
     isTruthy,
 } from '../util/index.js';
 import { ArrType } from '../type/array.js';
+import { Variadic } from '../type/variadic.js';
 
 export class Interpreter implements Visitor<Value | Error> {
     constructor(public env: Env<Value>) {}
@@ -1179,7 +1181,7 @@ export class Interpreter implements Visitor<Value | Error> {
         }
 
         return {
-            type: (arrObj.type as ArrType)?.type.copy(),
+            type: (arrObj.type as ArrType)?.type?.copy(),
             value: result,
         };
     }
@@ -1219,6 +1221,26 @@ export class Interpreter implements Visitor<Value | Error> {
         return (indexVal.value as IntObject).value;
     }
 
+    private checkForVariadic(func: Callable, funcArgs: Value[]) {
+        if (!(func instanceof FunctionObject)) return;
+
+        const funcParams = func.params.parseList();
+        const lastFuncParam = funcParams[funcParams.length - 1].type;
+
+        if (!(lastFuncParam instanceof Variadic)) return;
+
+        const variadicArgs = funcArgs.splice(funcParams.length - 1);
+        const arrayOfVariadicArgs = new ArrayObject(
+            variadicArgs.map((va) => va.value),
+            lastFuncParam.type.copy(),
+        );
+
+        funcArgs.push({
+            type: arrayOfVariadicArgs.type,
+            value: arrayOfVariadicArgs,
+        });
+    }
+
     visitCallExpression(node: Call): Value | Error {
         const { callee, args } = node;
 
@@ -1237,6 +1259,8 @@ export class Interpreter implements Visitor<Value | Error> {
         }
 
         funcArgs = funcArgs.map((arg) => this.getValueOrRef(arg as Value));
+
+        this.checkForVariadic(func, funcArgs as Value[]);
 
         const result = func.call(this, funcArgs as Value[]);
         if (isError(result)) return result;

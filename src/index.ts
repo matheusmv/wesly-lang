@@ -183,6 +183,18 @@ println(alex);
 
 setValue(stringTest, "only arrays and obj's as ref");
 println(stringTest);
+
+func sumAll(nums ...int) int {
+    var result = 0;
+
+    loop (var i = 0; i < len(nums); i++) {
+        result += nums[i];
+    }
+
+    return result;
+}
+
+println(sumAll(1, 2, 3, 4, 5, 6));
 `);
 
 function setGlobalEnv(env: Environment, props: EnvProperty[]) {
