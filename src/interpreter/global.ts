@@ -77,3 +77,30 @@ export function lenFunc(): EnvProperty {
         },
     };
 }
+
+export function copyFunc(): EnvProperty {
+    const getCallable = (): Callable => {
+        return {
+            call(it: Interpreter, args: Value[]) {
+                if (1 < args.length) {
+                    return new Error(`copy() should receive only one argument`);
+                }
+
+                const value = args[0];
+
+                return {
+                    type: value.type?.copy(),
+                    value: value.value?.copy(),
+                };
+            },
+        };
+    };
+
+    return {
+        name: 'copy',
+        value: {
+            type: new FuncType([new AnyT()], new AnyT()),
+            value: getCallable() as FunctionObject,
+        },
+    };
+}

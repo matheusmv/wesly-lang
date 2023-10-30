@@ -62,7 +62,6 @@ import {
     StringType,
     VoidType,
 } from '../type/atomic.js';
-import { FuncType } from '../type/func.js';
 import { Type } from '../type/index.js';
 import { ObjType } from '../type/object.js';
 import {
@@ -129,16 +128,18 @@ export class Interpreter implements Visitor<Value | Error> {
 
             if (!value.value) {
                 this.env.define(name.lexeme, {
-                    type: value.type?.copy() as Type,
+                    type: value.type as Type,
                     value: new NilObject(),
                 });
             } else {
-                const exprVal = value.value.accept(this);
+                let exprVal = value.value.accept(this);
                 if (isError(exprVal)) return exprVal;
 
+                exprVal = this.getValueOrRef(exprVal);
+
                 this.env.define(name.lexeme, {
-                    type: exprVal.type?.copy(),
-                    value: exprVal.value.copy(),
+                    type: exprVal.type,
+                    value: exprVal.value,
                 });
             }
         });
@@ -158,17 +159,19 @@ export class Interpreter implements Visitor<Value | Error> {
 
             if (!value.value) {
                 this.env.define(name.lexeme, {
-                    type: value.type?.copy() as Type,
+                    type: value.type as Type,
                     value: new NilObject(),
                     const: true,
                 });
             } else {
-                const exprVal = value.value.accept(this);
+                let exprVal = value.value.accept(this);
                 if (isError(exprVal)) return exprVal;
 
+                exprVal = this.getValueOrRef(exprVal);
+
                 this.env.define(name.lexeme, {
-                    type: exprVal.type?.copy(),
-                    value: exprVal.value?.copy(),
+                    type: exprVal.type,
+                    value: exprVal.value,
                     const: true,
                 });
             }
@@ -499,6 +502,21 @@ export class Interpreter implements Visitor<Value | Error> {
         return new Binary(lhs, newOp, rhs);
     }
 
+    private getValueOrRef(v: Value): Value {
+        if (v.value instanceof ObjectInstance) {
+            return v;
+        }
+
+        if (v.value instanceof ArrayObject) {
+            return v;
+        }
+
+        return {
+            type: v.type?.copy(),
+            value: v.value?.copy(),
+        };
+    }
+
     visitAssignExpression(node: Assign): Value | Error {
         const { lhs, operation, rhs } = node;
 
@@ -507,8 +525,7 @@ export class Interpreter implements Visitor<Value | Error> {
         let rVal = this.parseRhsOperation(lhs, operation, rhs).accept(this);
         if (isError(rVal)) return rVal;
 
-        // TODO: define values and references
-        rVal = { type: rVal.type?.copy(), value: rVal.value?.copy() };
+        rVal = this.getValueOrRef(rVal);
 
         let result: Value | Error;
 
@@ -1214,10 +1231,12 @@ export class Interpreter implements Visitor<Value | Error> {
                 `invalid operation: cannot call non-function: ${callee.toString()}`,
             );
 
-        const funcArgs = args.map((arg) => arg.accept(this));
+        let funcArgs = args.map((arg) => arg.accept(this));
         for (const arg of funcArgs) {
             if (isError(arg)) return arg;
         }
+
+        funcArgs = funcArgs.map((arg) => this.getValueOrRef(arg as Value));
 
         const result = func.call(this, funcArgs as Value[]);
         if (isError(result)) return result;
@@ -1237,7 +1256,7 @@ export class Interpreter implements Visitor<Value | Error> {
         if (isError(filedValue)) return filedValue;
 
         return {
-            type: {} as Type,
+            type: node.type?.copy() as Type,
             value: filedValue,
         };
     }

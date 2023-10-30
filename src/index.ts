@@ -8,7 +8,12 @@ import Types from './type/index.js';
 import { Environment } from './object/environment.js';
 import { Interpreter } from './interpreter/index.js';
 import { isError } from './util/index.js';
-import { EnvProperty, lenFunc, printlnFunc } from './interpreter/global.js';
+import {
+    EnvProperty,
+    copyFunc,
+    lenFunc,
+    printlnFunc,
+} from './interpreter/global.js';
 
 parser.yy = {
     Token,
@@ -145,6 +150,39 @@ println(len(alex.username));
 
 const PI = 3.14;
 println(PI);
+
+const alexCopy = copy(alex);
+alexCopy.username = "alexRef";
+alexCopy.address.number = 158;
+println(alex);
+println(alexCopy);
+
+const numsCopy = copy(nums);
+numsCopy[0] = 1;
+println(numsCopy);
+println(nums);
+
+var stringTest = "hello", stringTestCopy = stringTest;
+stringTestCopy = "world";
+println(stringTest);
+println(stringTestCopy);
+
+func setUsername(user User, username string) {
+    if (user != nil) {
+        user.username = username;
+    }
+}
+
+func setValue(l, r string) {
+    l = r;
+}
+
+setUsername(alexCopy, "alex copy");
+println(alexCopy);
+println(alex);
+
+setValue(stringTest, "only arrays and obj's as ref");
+println(stringTest);
 `);
 
 function setGlobalEnv(env: Environment, props: EnvProperty[]) {
@@ -155,7 +193,7 @@ function setGlobalEnv(env: Environment, props: EnvProperty[]) {
 
 const globalEnv = new Environment();
 
-setGlobalEnv(globalEnv, [printlnFunc(), lenFunc()]);
+setGlobalEnv(globalEnv, [printlnFunc(), lenFunc(), copyFunc()]);
 
 const interpreter = new Interpreter(globalEnv);
 
