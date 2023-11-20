@@ -195,6 +195,18 @@ func sumAll(nums ...int) int {
 }
 
 println(sumAll(1, 2, 3, 4, 5, 6));
+
+func adder(a int) {
+    return func(b int) {
+        return a + b;
+    };
+}
+
+const add5 = adder(5);
+
+println(add5(2));
+println(add5(22));
+println(add5(222));
 `);
 
 function setGlobalEnv(env: Environment, props: EnvProperty[]) {

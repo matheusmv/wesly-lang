@@ -58,6 +58,7 @@ import {
 } from '../object/index.js';
 import {
     BoolType,
+    CharType,
     FloatType,
     IntType,
     StringType,
@@ -66,6 +67,7 @@ import {
 import { Type, TypeKind } from '../type/index.js';
 import { ObjType } from '../type/object.js';
 import {
+    isArray,
     isBool,
     isBreak,
     isCallable,
@@ -197,7 +199,7 @@ export class Interpreter implements Visitor<Value | Error> {
 
         this.env.define(name.name, {
             type: type?.copy() as Type,
-            value: new FunctionObject(params, body, type as Type),
+            value: new FunctionObject(this.env, params, body, type as Type),
         });
 
         return {
@@ -1151,6 +1153,7 @@ export class Interpreter implements Visitor<Value | Error> {
         ['CharType', (value: any) => new CharObject(String(value))],
     ]);
 
+    // TODO: improve this implementation
     private execCast(type: Type, value: Obj): Value | Error {
         const castFunc = this.castTable.get(type.kind());
 
@@ -1202,6 +1205,32 @@ invalid expression: trying to cast an invalid type.
         let arrObj = this.getArrayObject(arr);
         if (isError(arrObj)) return arrObj;
 
+        // TODO: improve this implementation
+        if (isString(arrObj)) {
+            if (indexExprs.length > 1) {
+                return new Error(
+                    `out of bounds ${node.toString()} : ${arrObj.toString()}`,
+                );
+            }
+
+            const strIndex = this.getIntegerValueFromIndexExpression(
+                indexExprs[0],
+            );
+            if (isError(strIndex)) return strIndex;
+
+            if (strIndex < 0 || strIndex > arrObj.value.length - 1) {
+                return new Error(
+                    `out of bounds ${node.toString()} : ${arrObj.toString()}`,
+                );
+            }
+
+            const value = arrObj.value.charAt(strIndex);
+            return {
+                type: new CharType(),
+                value: new CharObject(value),
+            };
+        }
+
         if (this.isArrayDimensionTooSmall(arrObj, indexExprs.length - 1)) {
             return new Error(
                 `out of bounds ${node.toString()} : ${arrObj.toString()}`,
@@ -1235,9 +1264,14 @@ invalid expression: trying to cast an invalid type.
         };
     }
 
-    private getArrayObject(array: Expression): ArrayObject | Error {
+    private getArrayObject(
+        array: Expression,
+    ): ArrayObject | StringObject | Error {
         const arrayVal = array.accept(this);
         if (isError(arrayVal)) return arrayVal;
+
+        // Allow string indexing "message"[0] -> 'm'
+        if (isString(arrayVal.value)) return arrayVal.value;
 
         if (!(arrayVal.value instanceof ArrayObject)) {
             return new Error(
@@ -1408,7 +1442,7 @@ invalid expression: trying to cast an invalid type.
 
         return {
             type: type?.copy() as Type,
-            value: new FunctionObject(params, body, type as Type),
+            value: new FunctionObject(this.env, params, body, type as Type),
         };
     }
 

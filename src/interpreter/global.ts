@@ -17,11 +17,12 @@ export type EnvProperty = {
     value: Value;
 };
 
-export function printlnFunc(): EnvProperty {
+export function printlnFunc(stdout?: string[]): EnvProperty {
     const getCallable = (): Callable => {
         return {
             call(it: Interpreter, args: Value[]) {
                 const objs = args.map((vl) => vl.value.toString()).join('');
+                // stdout?.push(objs);
                 console.log(objs);
                 return {
                     type: new VoidType(),
