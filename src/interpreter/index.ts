@@ -63,9 +63,10 @@ import {
     StringType,
     VoidType,
 } from '../type/atomic.js';
-import { Type } from '../type/index.js';
+import { Type, TypeKind } from '../type/index.js';
 import { ObjType } from '../type/object.js';
 import {
+    isBool,
     isBreak,
     isCallable,
     isChar,
@@ -1143,8 +1144,56 @@ export class Interpreter implements Visitor<Value | Error> {
         return new Error(`invalid expression: ${node.toString()}`);
     }
 
+    private readonly castTable = new Map<TypeKind, (o: any) => Obj>([
+        ['IntegerType', (value: any) => new IntObject(parseInt(value))],
+        ['FloatType', (value: any) => new FloatObject(parseFloat(value))],
+        ['StringType', (value: any) => new StringObject(String(value))],
+        ['CharType', (value: any) => new CharObject(String(value))],
+    ]);
+
+    private execCast(type: Type, value: Obj): Value | Error {
+        const castFunc = this.castTable.get(type.kind());
+
+        if (castFunc && isString(value)) {
+            return {
+                type: type.copy(),
+                value: castFunc(value.value),
+            };
+        }
+
+        if (castFunc && isInt(value)) {
+            return {
+                type: type.copy(),
+                value: castFunc(value.value),
+            };
+        }
+
+        if (castFunc && isFloat(value)) {
+            return {
+                type: type.copy(),
+                value: castFunc(value.value),
+            };
+        }
+
+        if (castFunc && isChar(value)) {
+            return {
+                type: type.copy(),
+                value: castFunc(value.value),
+            };
+        }
+
+        return new Error(`\
+invalid expression: trying to cast an invalid type.
+                ${value.toString()}.(${type.toString()})`);
+    }
+
     visitCastExpression(node: Cast): Value | Error {
-        throw new Error('Method not implemented.');
+        const { target, type } = node;
+
+        const targetValue = target.accept(this);
+        if (isError(targetValue)) return targetValue;
+
+        return this.execCast(type, targetValue.value);
     }
 
     visitArrayMemberExpression(node: ArrayMember): Value | Error {
